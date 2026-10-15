@@ -46,7 +46,7 @@ const Hero = () => {
           scrollTrigger: scrub,
         });
         gsap.to("[data-hero-copy]", { y: -60, opacity: 0.2, ease: "none", scrollTrigger: scrub });
-        gsap.to("[data-hero-image]", { y: 90, ease: "none", scrollTrigger: scrub });
+        gsap.to("[data-hero-image]", { y: 40, ease: "none", scrollTrigger: scrub });
         gsap.to("[data-hero-glow]", { scale: 1.35, opacity: 0.6, ease: "none", scrollTrigger: scrub });
       });
     },
@@ -69,8 +69,8 @@ const Hero = () => {
         <span className="block h-2 w-2 rounded-full bg-accent-bright/60" />
       </span>
 
-      <div data-hero-copy className="mx-auto max-w-4xl px-4 pt-16 text-center sm:px-6 sm:pt-20">
-        <h1 className="text-[clamp(2.5rem,6.2vw,4.6rem)] font-extrabold leading-[1.04] tracking-[-0.035em] text-ink">
+      <div data-hero-copy className="mx-auto max-w-4xl px-4 pt-12 text-center sm:px-6 sm:pt-16 lg:pt-12">
+        <h1 className="text-[clamp(2.5rem,6vw,4.25rem)] font-extrabold leading-[1.04] tracking-[-0.035em] text-ink">
           {headline.map(({ word, accent, br }, i) => (
             <React.Fragment key={word}>
               {/* The mask clips each word while it slides up; padding keeps descenders visible */}
@@ -89,7 +89,7 @@ const Hero = () => {
           ))}
         </h1>
         <motion.p
-          className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-soft"
+          className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-ink-soft"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE_OUT, delay: afterHeadline }}
@@ -98,7 +98,7 @@ const Hero = () => {
           career report you can act on.
         </motion.p>
         <motion.div
-          className="mt-8 flex flex-wrap justify-center gap-3"
+          className="mt-7 flex flex-wrap justify-center gap-3"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE_OUT, delay: afterHeadline + 0.1 }}
@@ -112,7 +112,8 @@ const Hero = () => {
         </motion.div>
       </div>
 
-      <div className="relative mx-auto mt-12 max-w-4xl px-4 sm:px-6">
+      {/* On desktop the group scales with the window height so it shows to chest level above the fold */}
+      <div className="relative mx-auto mt-10 max-w-4xl px-4 sm:px-6 lg:mt-8 lg:max-w-[clamp(30rem,calc((100svh-29rem)*2),46rem)]">
         <div
           data-hero-glow
           aria-hidden="true"
