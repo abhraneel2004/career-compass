@@ -73,16 +73,6 @@ p, blockquote {
   box-shadow: 0 14px 34px -20px rgba(23, 32, 51, 0.35);
 }
 
-/* Hero entrance: the one page-load sequence on the site */
-@keyframes rise-in {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: none; }
-}
-
-.rise-in {
-  animation: rise-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
 /* Quiz: a guide steps in, a question appears, a reaction pops, XP floats up */
 @keyframes guide-in {
   from { opacity: 0; transform: translateX(-28px) scale(0.96); }
@@ -117,5 +107,5 @@ p, blockquote {
 .bob { animation: bob 1.4s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise-in, .guide-in, .bubble-in, .pop, .xp-float, .bob { animation: none; }
+  .guide-in, .bubble-in, .pop, .xp-float, .bob { animation: none; }
 }

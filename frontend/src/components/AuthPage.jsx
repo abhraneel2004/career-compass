@@ -41,8 +41,14 @@ const authMessages = {
   'auth/too-many-requests': 'Too many attempts. Wait a minute, then try again.',
   'auth/network-request-failed': 'You seem to be offline. Check your connection and try again.',
   'auth/popup-blocked': 'Your browser blocked the Google window. Allow pop-ups for this site and try again.',
+  'auth/unauthorized-domain': `Google sign-in isn’t enabled for ${window.location.hostname} yet. Add it under Firebase console > Authentication > Settings > Authorized domains.`,
+  'auth/operation-not-allowed': 'This sign-in method is turned off. Enable it under Firebase console > Authentication > Sign-in method.',
 };
-const authMessage = (error) => authMessages[error?.code] || 'Something went wrong. Please try again.';
+// Unexpected errors keep their code, so a screenshot of the message is enough to diagnose them
+const authMessage = (error) => {
+  console.error('Sign-in error:', error);
+  return authMessages[error?.code] || `Something went wrong${error?.code ? ` (${error.code})` : ''}. Please try again.`;
+};
 const isDismissed = (error) => ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(error?.code);
 
 const perks = [

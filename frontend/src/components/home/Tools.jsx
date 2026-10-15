@@ -1,6 +1,10 @@
-import React from "react";
+import React, { useRef } from "react";
+import { motion } from "framer-motion";
 import { Clock, FileDown, Zap } from "lucide-react";
 import { useGoProtected } from "../../hooks/useAuth";
+import Reveal from "../motion/Reveal";
+import { dealIn, lift, press, viewportOnce } from "../../lib/motion";
+import { gsap, MOTION_OK, useGSAP } from "../../lib/gsap";
 
 const tools = [
   {
@@ -41,33 +45,65 @@ const tools = [
 
 const Tools = () => {
   const goProtected = useGoProtected();
+  const root = useRef(null);
+
+  // Each scene drifts inside its frame as the card passes through the viewport
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      mm.add(MOTION_OK, () => {
+        gsap.utils.toArray("[data-scene]").forEach((img) => {
+          gsap.fromTo(
+            img,
+            { yPercent: -7 },
+            {
+              yPercent: 7,
+              ease: "none",
+              scrollTrigger: { trigger: img.parentElement, start: "top bottom", end: "bottom top", scrub: true },
+            }
+          );
+        });
+      });
+    },
+    { scope: root }
+  );
 
   return (
-    <section className="bg-white px-4 py-20 sm:px-6 sm:py-24">
+    <section ref={root} className="overflow-x-clip bg-white px-4 py-20 sm:px-6 sm:py-24">
       <div className="mx-auto max-w-6xl">
-        <div className="max-w-xl">
+        <Reveal className="max-w-xl">
           <h2 className="text-[clamp(2rem,4vw,2.75rem)] font-extrabold tracking-[-0.03em] text-ink">
             Tools for your next move
           </h2>
           <p className="mt-3 text-ink-soft">Start with the quiz, then use the others when you're ready to apply.</p>
-        </div>
+        </Reveal>
 
         <div className="mt-12 grid gap-6 md:grid-cols-3">
-          {tools.map((tool) => {
+          {tools.map((tool, index) => {
             const MetaIcon = tool.meta.icon;
             return (
-              <article
+              <motion.article
                 key={tool.title}
-                className={`card-shadow flex flex-col rounded-3xl p-4 transition-transform duration-300 hover:rotate-0 motion-reduce:transition-none ${tool.tone}`}
+                custom={index}
+                variants={dealIn}
+                initial="hidden"
+                whileInView="show"
+                viewport={viewportOnce}
+                whileHover={lift}
+                className={`card-shadow flex flex-col rounded-3xl p-4 transition-[rotate] duration-300 hover:rotate-0 motion-reduce:transition-none ${tool.tone}`}
               >
-                <img
-                  src={tool.image}
-                  alt={tool.alt}
-                  width="960"
-                  height="717"
-                  loading="lazy"
-                  className="aspect-[4/3] w-full rounded-2xl object-cover"
-                />
+                {/* Oversized so the parallax drift never shows an edge */}
+                <div className="aspect-[4/3] w-full overflow-hidden rounded-2xl">
+                  <img
+                    data-scene
+                    src={tool.image}
+                    alt={tool.alt}
+                    width="960"
+                    height="717"
+                    loading="lazy"
+                    className="h-full w-full scale-[1.18] object-cover"
+                  />
+                </div>
                 <div className="flex flex-1 flex-col px-2 pb-2 pt-5">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="rounded-full bg-white px-3 py-1 font-semibold text-ink">{tool.tag}</span>
@@ -78,14 +114,15 @@ const Tools = () => {
                   </div>
                   <h3 className="mt-4 text-xl font-bold tracking-tight text-ink">{tool.title}</h3>
                   <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">{tool.text}</p>
-                  <button
+                  <motion.button
+                    {...press}
                     onClick={() => goProtected(tool.path)}
                     className={`mt-6 self-start ${tool.primary ? "btn-primary" : "btn-outline"}`}
                   >
                     {tool.cta}
-                  </button>
+                  </motion.button>
                 </div>
-              </article>
+              </motion.article>
             );
           })}
         </div>
