@@ -32,7 +32,7 @@ const validationSchema = Yup.object().shape({
   answer: Yup.string().required("Please select an option")
 });
 
-const WorkEnv = () => {
+const Strength = () => {
   const [page, setPage] = useState(0);
   const [answers, setAnswers] = useState({});
   const navigate = useNavigate();
@@ -102,4 +102,4 @@ const WorkEnv = () => {
   );
 };
 
-export default WorkEnv;
+export default Strength;

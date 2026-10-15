@@ -1,15 +1,126 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #172033;
+  --color-ink-soft: #5B6577;
+  --color-line: #E6E8EE;
+  --color-surface: #F6F7F9;
+  --color-night: #182132;
+
+  /* Orange: the darker tone carries white button text, the brighter one is for large display type */
+  --color-accent: #C9480C;
+  --color-accent-hover: #A93B0A;
+  --color-accent-bright: #E8590C;
+
+  /* Card tints */
+  --color-peach: #FFE8D9;
+  --color-sky: #E3EEFF;
+  --color-lilac: #EEE6FF;
+  --color-butter: #FFF3C9;
+  --color-rose: #FFE4EC;
+  --color-mint: #DDF6E9;
+}
+
+:root {
+  --toastify-font-family: var(--font-sans);
+}
 
 body {
   margin: 0;
-  padding: 0;
-  width: 100vw;
-  height: 100dvh; 
+  background: #FFFFFF;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
+h1, h2, h3 {
+  text-wrap: balance;
+}
 
+p, blockquote {
+  text-wrap: pretty;
+}
 
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-[15px] font-semibold transition-colors;
+}
+
+@utility btn-primary {
+  @apply btn bg-accent text-white shadow-[0_10px_24px_-10px_rgba(201,72,12,0.7)] hover:bg-accent-hover;
+}
+
+@utility btn-outline {
+  @apply btn border border-ink/80 bg-white text-ink hover:bg-surface;
+}
+
+@utility field {
+  @apply block w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-soft/70 transition-colors hover:border-ink/30 focus:border-accent-bright focus:outline-none focus:ring-4 focus:ring-accent-bright/15;
+}
+
+@utility field-label {
+  @apply mb-1.5 block text-sm font-semibold text-ink;
+}
+
+@utility card-shadow {
+  box-shadow: 0 14px 34px -20px rgba(23, 32, 51, 0.35);
+}
+
+/* Hero entrance: the one page-load sequence on the site */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+.rise-in {
+  animation: rise-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Quiz: a guide steps in, a question appears, a reaction pops, XP floats up */
+@keyframes guide-in {
+  from { opacity: 0; transform: translateX(-28px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  70% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes xp-float {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-22px); }
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.guide-in { animation: guide-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.bubble-in { animation: bubble-in 0.35s ease-out both; }
+.pop { animation: pop 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.xp-float { animation: xp-float 0.9s ease-out both; }
+.bob { animation: bob 1.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in, .guide-in, .bubble-in, .pop, .xp-float, .bob { animation: none; }
+}
+
+/* Auth page panel swap */
 @keyframes slide-in {
   0% { opacity: 0; transform: translateX(-100%); }
   100% { opacity: 1; transform: translateX(0); }

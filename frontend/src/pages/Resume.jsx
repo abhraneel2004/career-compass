@@ -1,12 +1,53 @@
-import React, { useState } from 'react';
-import { jsPDF } from 'jspdf';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { toast } from 'react-toastify';
+import { ArrowLeft, Check, CircleCheck, Download, Plus, UserRound, X } from 'lucide-react';
+import { FINAL_TROPHY, guides } from '../data/guides';
+import { levelFor, resumeSteps, resumeTasks, strengthLevels } from '../data/resumeSteps';
+import { useAuthState } from '../hooks/useAuth';
+import { downloadResumePdf, loadResume, saveResume } from '../lib/resume';
+import ResumeDocument from '../components/resume/ResumeDocument';
 
 const predefinedSkills = ['JavaScript', 'React', 'Node.js', 'HTML', 'CSS', 'Python', 'Java', 'SQL', 'Communication', 'Decision Making', 'Self-Motivation', 'Team Management', 'Other'];
 
+const FormikField = ({ formik, name, label, placeholder, type = 'text', as = 'input' }) => {
+    const Tag = as;
+    const error = formik.touched[name] && formik.errors[name];
+    return (
+        <div>
+            <label htmlFor={name} className="field-label">{label}</label>
+            <Tag
+                id={name}
+                name={name}
+                type={as === 'input' ? type : undefined}
+                rows={as === 'textarea' ? 3 : undefined}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                value={formik.values[name]}
+                placeholder={placeholder}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? `${name}-error` : undefined}
+                className={`field ${error ? 'border-red-400' : ''}`}
+            />
+            {error && <p id={`${name}-error`} className="mt-1.5 text-sm text-red-600">{error}</p>}
+        </div>
+    );
+};
+
+const AddButton = ({ onClick, children }) => (
+    <button type="button" onClick={onClick} className="btn-outline mt-4 px-4 py-2 text-sm">
+        <Plus className="h-4 w-4" aria-hidden="true" />
+        {children}
+    </button>
+);
+
+const MISSING_TOAST = 'resume-missing-fields';
+
 const ResumeGenerator = () => {
     const [preview, setPreview] = useState(false);
+    const [step, setStep] = useState(0);
     const [selectedSkills, setSelectedSkills] = useState([]);
     const [isOther, setIsOther] = useState(false);
     const [customSkill, setCustomSkill] = useState('');
@@ -106,200 +147,6 @@ const ResumeGenerator = () => {
         setCourses(updatedCourses);
     };
 
-    const generatePDF = () => {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-
-        // Set up fonts & colors
-        const primaryColor = [41, 128, 185]; // Professional blue
-
-        // Name as header
-        doc.setFontSize(24);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text(formik.values.name, pageWidth / 2, 20, { align: 'center' });
-
-        // Contact information
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        const contactInfo = `${formik.values.email} | ${formik.values.phone} | ${formik.values.linkedin} | ${formik.values.github}`;
-        doc.text(contactInfo, pageWidth / 2, 28, { align: 'center' });
-
-        // Horizontal line
-        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.setLineWidth(0.5);
-        doc.line(15, 32, pageWidth - 15, 32);
-
-        let yPos = 40;
-        const leftMargin = 15;
-        const rightMargin = pageWidth - 15;
-
-        // Section: Experience
-        doc.setFontSize(14);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text("PROFESSIONAL EXPERIENCE", leftMargin, yPos);
-        doc.setLineWidth(0.2);
-        doc.line(leftMargin, yPos + 2, rightMargin, yPos + 2);
-        yPos += 10;
-
-        // Experience details
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-
-        experiences.forEach(exp => {
-            if (!exp.company && !exp.role) return; // Skip empty experiences
-
-            doc.setFont(undefined, 'bold');
-            doc.text(exp.company, leftMargin, yPos);
-
-            // Role and date on the same line, role on left, date on right
-            doc.setFont(undefined, 'bold');
-            doc.text(exp.role, leftMargin, yPos + 5);
-
-            doc.setFont(undefined, 'normal');
-            const dateRange = `${exp.startDate} - ${exp.endDate}`;
-            doc.text(dateRange, rightMargin, yPos + 5, { align: 'right' });
-
-            yPos += 12;
-        });
-
-        yPos += 5;
-
-        // Section: Skills
-        doc.setFontSize(14);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text("SKILLS", leftMargin, yPos);
-        doc.setLineWidth(0.2);
-        doc.line(leftMargin, yPos + 2, rightMargin, yPos + 2);
-        yPos += 10;
-
-        // Skills content
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, 'normal');
-
-        const skillsText = selectedSkills.join(', ');
-        const splitSkills = doc.splitTextToSize(skillsText, rightMargin - leftMargin);
-        doc.text(splitSkills, leftMargin, yPos);
-        yPos += splitSkills.length * 5 + 10;
-
-        // Section: Education
-        doc.setFontSize(14);
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text("EDUCATION", leftMargin, yPos);
-        doc.setLineWidth(0.2);
-        doc.line(leftMargin, yPos + 2, rightMargin, yPos + 2);
-        yPos += 10;
-
-        // Education content
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, 'normal');
-        const educationText = formik.values.education;
-        const splitEducation = doc.splitTextToSize(educationText, rightMargin - leftMargin);
-        doc.text(splitEducation, leftMargin, yPos);
-        yPos += splitEducation.length * 5 + 10;
-
-        // Section: Achievements
-        if (achievements.some(a => a.title || a.role)) {
-            doc.setFontSize(14);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text("ACHIEVEMENTS", leftMargin, yPos);
-            doc.setLineWidth(0.2);
-            doc.line(leftMargin, yPos + 2, rightMargin, yPos + 2);
-            yPos += 10;
-
-            // Achievements content
-            doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
-
-            achievements.forEach(achievement => {
-                if (!achievement.title && !achievement.role) return; // Skip empty achievements
-                doc.setFont(undefined, 'bold');
-                doc.text(achievement.title, leftMargin, yPos);
-                doc.setFont(undefined, 'normal');
-                doc.text(achievement.role, leftMargin + 5, yPos + 5);
-                yPos += 12;
-            });
-        }
-
-        // Add after the Achievements section in the generatePDF function
-        // Section: Projects
-        if (projects.some(p => p.title || p.description)) {
-            yPos += 5;
-            doc.setFontSize(14);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text("PROJECTS", leftMargin, yPos);
-            doc.setLineWidth(0.2);
-            doc.line(leftMargin, yPos + 2, rightMargin, yPos + 2);
-            yPos += 10;
-
-            // Projects content
-            doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
-
-            projects.forEach(project => {
-                if (!project.title && !project.description) return; // Skip empty projects
-
-                doc.setFont(undefined, 'bold');
-                doc.text(project.title, leftMargin, yPos);
-                yPos += 5;
-
-                if (project.technologies) {
-                    doc.setFont(undefined, 'italic');
-                    const techText = `Technologies: ${project.technologies}`;
-                    doc.text(techText, leftMargin, yPos);
-                    yPos += 5;
-                }
-
-                if (project.description) {
-                    doc.setFont(undefined, 'normal');
-                    const descLines = doc.splitTextToSize(project.description, rightMargin - leftMargin);
-                    doc.text(descLines, leftMargin, yPos);
-                    yPos += descLines.length * 5;
-                }
-
-                if (project.link) {
-                    doc.setTextColor(41, 128, 185); // Blue for links
-                    doc.text(project.link, leftMargin, yPos);
-                    doc.setTextColor(0, 0, 0); // Reset text color
-                    yPos += 5;
-                }
-
-                yPos += 5; // Space between projects
-            });
-        }
-
-        // Section: Courses/Training
-        if (courses.some(c => c.title || c.provider)) {
-            yPos += 5;
-            doc.setFontSize(14);
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text("COURSES & TRAINING", leftMargin, yPos);
-            doc.setLineWidth(0.2);
-            doc.line(leftMargin, yPos + 2, rightMargin, yPos + 2);
-            yPos += 10;
-
-            // Courses content
-            doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
-
-            courses.forEach(course => {
-                if (!course.title && !course.provider) return; // Skip empty courses
-
-                doc.setFont(undefined, 'bold');
-                doc.text(course.title, leftMargin, yPos);
-
-                const dateAndProvider = course.provider + (course.date ? ` (${course.date})` : '');
-                doc.setFont(undefined, 'normal');
-                doc.text(dateAndProvider, leftMargin + 5, yPos + 5);
-                yPos += 12;
-            });
-        }
-
-        // Save PDF
-        doc.save(`${formik.values.name.replace(/\s+/g, '_')}_resume.pdf`);
-    };
-
     const formik = useFormik({
         initialValues: {
             name: '',
@@ -317,466 +164,536 @@ const ResumeGenerator = () => {
             linkedin: Yup.string().url('Invalid URL').required('LinkedIn profile is required'),
             github: Yup.string().url('Invalid URL').required('GitHub profile is required'),
         }),
-        onSubmit: (values) => {
+        onSubmit: () => {
             setPreview(true);
         },
     });
 
-    return (
-        <div className="p-8 bg-gray-50 min-h-screen">
-            <h1 className="text-4xl font-bold mb-4 text-center">Resume Generator</h1>
-            <div className="p-6 bg-white shadow-xl rounded-2xl max-w-4xl mx-auto">
-                {!preview ? (
-                    <form onSubmit={formik.handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="mb-4">
-                                <label className="block text-lg font-semibold mb-2">Name</label>
-                                <input
-                                    name="name"
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    value={formik.values.name}
-                                    placeholder="Enter your full name"
-                                    className="w-full p-2 border rounded-md"
-                                />
-                                {formik.touched.name && formik.errors.name && (
-                                    <div className="text-red-500 text-sm mt-1">{formik.errors.name}</div>
-                                )}
-                            </div>
+    const currentResume = () => ({
+        values: formik.values,
+        experiences,
+        skills: selectedSkills,
+        projects,
+        achievements,
+        courses,
+    });
 
-                            <div className="mb-4">
-                                <label className="block text-lg font-semibold mb-2">Phone</label>
-                                <input
-                                    name="phone"
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    value={formik.values.phone}
-                                    placeholder="Enter your phone number"
-                                    className="w-full p-2 border rounded-md"
-                                />
-                                {formik.touched.phone && formik.errors.phone && (
-                                    <div className="text-red-500 text-sm mt-1">{formik.errors.phone}</div>
-                                )}
-                            </div>
+    // Saved resume: loaded into the builder on arrival, saved again each time it's previewed
+    const { user, ready: authReady } = useAuthState();
+    const [saveState, setSaveState] = useState('idle');
+    const loadedFor = useRef(null);
 
-                            <div className="mb-4">
-                                <label className="block text-lg font-semibold mb-2">Email</label>
-                                <input
-                                    name="email"
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    value={formik.values.email}
-                                    placeholder="Enter your email address"
-                                    className="w-full p-2 border rounded-md"
-                                />
-                                {formik.touched.email && formik.errors.email && (
-                                    <div className="text-red-500 text-sm mt-1">{formik.errors.email}</div>
-                                )}
-                            </div>
+    useEffect(() => {
+        if (!authReady || !user || loadedFor.current === user.uid) return;
+        loadedFor.current = user.uid;
+        loadResume(user.uid)
+            .then((saved) => {
+                if (!saved || formik.dirty) return;
+                formik.resetForm({ values: saved.values });
+                setExperiences(saved.experiences);
+                setSelectedSkills(saved.skills);
+                setProjects(saved.projects);
+                setAchievements(saved.achievements);
+                setCourses(saved.courses);
+                toast.info('We loaded your saved resume. Pick up where you left off.', { toastId: 'resume-loaded' });
+            })
+            .catch((error) => console.error("Couldn't load the saved resume:", error));
+    }, [authReady, user, formik]);
 
-                            <div className="mb-4">
-                                <label className="block text-lg font-semibold mb-2">LinkedIn</label>
-                                <input
-                                    name="linkedin"
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    value={formik.values.linkedin}
-                                    placeholder="Enter your LinkedIn profile URL"
-                                    className="w-full p-2 border rounded-md"
-                                />
-                                {formik.touched.linkedin && formik.errors.linkedin && (
-                                    <div className="text-red-500 text-sm mt-1">{formik.errors.linkedin}</div>
-                                )}
-                            </div>
+    const saveToProfile = async () => {
+        if (!user) return;
+        setSaveState('saving');
+        try {
+            await saveResume(user.uid, currentResume());
+            setSaveState('saved');
+        } catch (error) {
+            console.error("Couldn't save the resume:", error);
+            setSaveState('error');
+        }
+    };
 
-                            <div className="mb-4">
-                                <label className="block text-lg font-semibold mb-2">GitHub</label>
-                                <input
-                                    name="github"
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    value={formik.values.github}
-                                    placeholder="Enter your GitHub profile URL"
-                                    className="w-full p-2 border rounded-md"
-                                />
-                                {formik.touched.github && formik.errors.github && (
-                                    <div className="text-red-500 text-sm mt-1">{formik.errors.github}</div>
-                                )}
-                            </div>
-                        </div>
+    const tasks = resumeTasks({ values: formik.values, experiences, selectedSkills, projects, achievements, courses });
+    const strength = tasks.reduce((sum, task) => sum + (task.done ? task.points : 0), 0);
+    const level = levelFor(strength);
+    const stepDone = resumeSteps.map((s) => tasks.filter((task) => task.step === s.id).every((task) => task.done));
+    const nextTasks = tasks.filter((task) => !task.done).sort((a, b) => b.points - a.points).slice(0, 2);
+    const current = resumeSteps[step];
+    const coach = guides[current.coach];
+    const isLastStep = step === resumeSteps.length - 1;
 
-                        <div className="mb-4">
-                            <label className="block text-lg font-semibold mb-2">Education</label>
-                            <textarea
-                                name="education"
-                                onChange={formik.handleChange}
-                                onBlur={formik.handleBlur}
-                                value={formik.values.education}
-                                placeholder="Enter your education details"
-                                className="w-full p-2 border rounded-md"
-                                rows="3"
-                            />
-                            {formik.touched.education && formik.errors.education && (
-                                <div className="text-red-500 text-sm mt-1">{formik.errors.education}</div>
-                            )}
-                        </div>
+    // Celebrate each time the resume reaches a higher strength level
+    const lastLevel = useRef(level.name);
+    useEffect(() => {
+        const rank = (name) => strengthLevels.findIndex((l) => l.name === name);
+        if (rank(level.name) < rank(lastLevel.current)) {
+            toast.success(`Level up! Your resume is now ${level.name}.`, { autoClose: 2500 });
+        }
+        lastLevel.current = level.name;
+    }, [level.name]);
 
-                        <div className="mb-4">
-                            <label className="block text-lg font-semibold mb-2">Experience</label>
+    useEffect(() => {
+        window.scrollTo({ top: 0 });
+    }, [step, preview]);
+
+    const touchFields = (fields) =>
+        formik.setTouched({ ...formik.touched, ...Object.fromEntries(fields.map((field) => [field, true])) }, false);
+
+    // Checks every required field; jumps to the first step with a problem
+    const openPreview = async () => {
+        const errors = await formik.validateForm();
+        const firstProblem = resumeSteps.findIndex((s) => s.fields.some((field) => errors[field]));
+        if (firstProblem !== -1) {
+            touchFields(resumeSteps.flatMap((s) => s.fields));
+            setStep(firstProblem);
+            toast.error("A few required details are missing.", { toastId: MISSING_TOAST });
+            return;
+        }
+        toast.dismiss(MISSING_TOAST);
+        setPreview(true);
+        saveToProfile();
+    };
+
+    const goNext = async (e) => {
+        e?.preventDefault();
+        if (current.fields.length) {
+            touchFields(current.fields);
+            const errors = await formik.validateForm();
+            if (current.fields.some((field) => errors[field])) {
+                toast.error("Fill in the highlighted fields to continue.", { toastId: MISSING_TOAST });
+                return;
+            }
+        }
+        toast.dismiss(MISSING_TOAST);
+        if (isLastStep) {
+            openPreview();
+        } else {
+            setStep(step + 1);
+        }
+    };
+
+    const improve = (task) => {
+        setPreview(false);
+        setStep(resumeSteps.findIndex((s) => s.id === task.step));
+    };
+
+    const renderStepFields = () => {
+        switch (current.id) {
+            case 'contact':
+                return (
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <FormikField formik={formik} name="name" label="Full name" placeholder="Aanya Sharma" />
+                        <FormikField formik={formik} name="phone" label="Phone" placeholder="+91 98765 43210" />
+                        <FormikField formik={formik} name="email" label="Email" placeholder="you@example.com" type="email" />
+                        <FormikField formik={formik} name="linkedin" label="LinkedIn URL" placeholder="https://linkedin.com/in/your-name" />
+                        <FormikField formik={formik} name="github" label="GitHub URL" placeholder="https://github.com/your-name" />
+                    </div>
+                );
+            case 'education':
+                return (
+                    <FormikField
+                        formik={formik}
+                        name="education"
+                        label="Degree, institution and years"
+                        placeholder="B.Tech in Computer Science, Academy of Technology, 2022–2026"
+                        as="textarea"
+                    />
+                );
+            case 'experience':
+                return (
+                    <>
+                        <div className="space-y-4">
                             {experiences.map((exp, index) => (
-                                <div key={index} className="mb-4 p-4 border rounded-lg bg-gray-50">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="mb-2">
-                                            <label className="block font-medium mb-1">Company</label>
-                                            <input
-                                                placeholder="Company Name"
-                                                value={exp.company}
-                                                onChange={(e) => handleExperienceChange(index, 'company', e.target.value)}
-                                                className="w-full p-2 border rounded-md"
-                                            />
-                                        </div>
-                                        <div className="mb-2">
-                                            <label className="block font-medium mb-1">Role</label>
-                                            <input
-                                                placeholder="Job Title"
-                                                value={exp.role}
-                                                onChange={(e) => handleExperienceChange(index, 'role', e.target.value)}
-                                                className="w-full p-2 border rounded-md"
-                                            />
-                                        </div>
+                                <div key={index} className="grid gap-4 rounded-2xl border border-line p-4 md:grid-cols-2">
+                                    <div>
+                                        <label htmlFor={`exp-company-${index}`} className="field-label">Company</label>
+                                        <input id={`exp-company-${index}`} placeholder="Company name" value={exp.company} onChange={(e) => handleExperienceChange(index, 'company', e.target.value)} className="field" />
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block font-medium mb-1">Start Date</label>
-                                            <input
-                                                placeholder="MM/YYYY"
-                                                value={exp.startDate}
-                                                onChange={(e) => handleExperienceChange(index, 'startDate', e.target.value)}
-                                                className="w-full p-2 border rounded-md"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block font-medium mb-1">End Date</label>
-                                            <input
-                                                placeholder="MM/YYYY or Present"
-                                                value={exp.endDate}
-                                                onChange={(e) => handleExperienceChange(index, 'endDate', e.target.value)}
-                                                className="w-full p-2 border rounded-md"
-                                            />
-                                        </div>
+                                    <div>
+                                        <label htmlFor={`exp-role-${index}`} className="field-label">Role</label>
+                                        <input id={`exp-role-${index}`} placeholder="Job title" value={exp.role} onChange={(e) => handleExperienceChange(index, 'role', e.target.value)} className="field" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor={`exp-start-${index}`} className="field-label">Start date</label>
+                                        <input id={`exp-start-${index}`} placeholder="MM/YYYY" value={exp.startDate} onChange={(e) => handleExperienceChange(index, 'startDate', e.target.value)} className="field" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor={`exp-end-${index}`} className="field-label">End date</label>
+                                        <input id={`exp-end-${index}`} placeholder="MM/YYYY or Present" value={exp.endDate} onChange={(e) => handleExperienceChange(index, 'endDate', e.target.value)} className="field" />
                                     </div>
                                 </div>
                             ))}
-                            <button
-                                type="button"
-                                onClick={addExperience}
-                                className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
-                            >
-                                Add More Experience
-                            </button>
                         </div>
-
-                        <div className="mb-4">
-                            <label className="block text-lg font-semibold mb-2">Achievements</label>
-                            {achievements.map((ach, index) => (
-                                <div key={index} className="mb-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <input
-                                        placeholder="Achievement Title"
-                                        value={ach.title}
-                                        onChange={(e) => handleAchievementChange(index, 'title', e.target.value)}
-                                        className="w-full p-2 border rounded-md"
-                                    />
-                                    <input
-                                        placeholder="Role/Details"
-                                        value={ach.role}
-                                        onChange={(e) => handleAchievementChange(index, 'role', e.target.value)}
-                                        className="w-full p-2 border rounded-md"
-                                    />
-                                </div>
+                        <AddButton onClick={addExperience}>Add experience</AddButton>
+                    </>
+                );
+            case 'skills':
+                return (
+                    <>
+                        <div className="flex min-h-12 flex-wrap gap-2">
+                            {selectedSkills.map((skill) => (
+                                <span key={skill} className="pop inline-flex items-center gap-1.5 rounded-full bg-ink py-1.5 pl-3.5 pr-2 text-sm font-semibold text-white">
+                                    {skill}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeSkill(skill)}
+                                        aria-label={`Remove ${skill}`}
+                                        className="rounded-full p-0.5 hover:bg-white/20"
+                                    >
+                                        <X className="h-3.5 w-3.5" aria-hidden="true" />
+                                    </button>
+                                </span>
                             ))}
-                            <button
-                                type="button"
-                                onClick={addAchievement}
-                                className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
-                            >
-                                Add More Achievements
-                            </button>
+                            {selectedSkills.length === 0 && (
+                                <span className="self-center text-sm text-ink-soft">No skills added yet. Pick some below.</span>
+                            )}
                         </div>
-
-                        <div className="mb-4">
-                            <label className="block text-lg font-semibold mb-2">Skills</label>
-                            <div className="flex flex-wrap gap-2 mb-4 p-4 border rounded-md bg-gray-50">
-                                {selectedSkills.map((skill) => (
-                                    <span key={skill} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center">
+                        <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-4">
+                            {predefinedSkills
+                                .filter((skill) => !selectedSkills.includes(skill))
+                                .map((skill) => (
+                                    <button
+                                        key={skill}
+                                        type="button"
+                                        onClick={() => addSkill(skill)}
+                                        className="inline-flex items-center gap-1 rounded-full border border-line bg-white px-3.5 py-1.5 text-sm font-medium text-ink transition-colors hover:border-ink/40"
+                                    >
+                                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                                         {skill}
-                                        <button
-                                            onClick={() => removeSkill(skill)}
-                                            className="ml-2 text-blue-800 hover:text-red-500"
-                                        >
-                                            ×
-                                        </button>
-                                    </span>
+                                    </button>
                                 ))}
-                                {selectedSkills.length === 0 && (
-                                    <span className="text-gray-500 italic">No skills selected</span>
-                                )}
-                            </div>
-                            <div className="mb-2">
-                                <div className="flex flex-wrap gap-2 mb-2">
-                                    {predefinedSkills.map((skill) => (
-                                        <button
-                                            key={skill}
-                                            type="button"
-                                            onClick={() => addSkill(skill)}
-                                            className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors"
-                                        >
-                                            {skill}
-                                        </button>
-                                    ))}
-                                </div>
-                                {isOther && (
-                                    <div className="flex gap-2 mt-2">
-                                        <input
-                                            value={customSkill}
-                                            onChange={(e) => setCustomSkill(e.target.value)}
-                                            placeholder="Enter custom skill"
-                                            className="flex-grow p-2 border rounded-md"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={addCustomSkill}
-                                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
-                                        >
-                                            Add
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
                         </div>
-
-                        {/* Projects Section - Add after the Skills section */}
-                        <div className="mb-4">
-                            <label className="block text-lg font-semibold mb-2">Projects</label>
+                        {isOther && (
+                            <div className="mt-4 flex gap-2">
+                                <input
+                                    value={customSkill}
+                                    onChange={(e) => setCustomSkill(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            addCustomSkill();
+                                        }
+                                    }}
+                                    placeholder="Type a skill"
+                                    aria-label="Custom skill"
+                                    className="field"
+                                />
+                                <button type="button" onClick={addCustomSkill} className="btn-outline shrink-0">
+                                    Add
+                                </button>
+                            </div>
+                        )}
+                    </>
+                );
+            case 'projects':
+                return (
+                    <>
+                        <div className="space-y-4">
                             {projects.map((proj, index) => (
-                                <div key={index} className="mb-4 p-4 border rounded-lg bg-gray-50">
-                                    <div className="mb-2">
-                                        <label className="block font-medium mb-1">Project Title</label>
-                                        <input
-                                            placeholder="Project Name"
-                                            value={proj.title}
-                                            onChange={(e) => handleProjectChange(index, 'title', e.target.value)}
-                                            className="w-full p-2 border rounded-md"
-                                        />
+                                <div key={index} className="grid gap-4 rounded-2xl border border-line p-4 md:grid-cols-2">
+                                    <div>
+                                        <label htmlFor={`proj-title-${index}`} className="field-label">Project title</label>
+                                        <input id={`proj-title-${index}`} placeholder="Project name" value={proj.title} onChange={(e) => handleProjectChange(index, 'title', e.target.value)} className="field" />
                                     </div>
-                                    <div className="mb-2">
-                                        <label className="block font-medium mb-1">Technologies Used</label>
-                                        <input
-                                            placeholder="React, Node.js, etc."
-                                            value={proj.technologies}
-                                            onChange={(e) => handleProjectChange(index, 'technologies', e.target.value)}
-                                            className="w-full p-2 border rounded-md"
-                                        />
+                                    <div>
+                                        <label htmlFor={`proj-tech-${index}`} className="field-label">Technologies used</label>
+                                        <input id={`proj-tech-${index}`} placeholder="React, Node.js" value={proj.technologies} onChange={(e) => handleProjectChange(index, 'technologies', e.target.value)} className="field" />
                                     </div>
-                                    <div className="mb-2">
-                                        <label className="block font-medium mb-1">Description</label>
-                                        <textarea
-                                            placeholder="Brief description of your project"
-                                            value={proj.description}
-                                            onChange={(e) => handleProjectChange(index, 'description', e.target.value)}
-                                            className="w-full p-2 border rounded-md"
-                                            rows="3"
-                                        />
+                                    <div className="md:col-span-2">
+                                        <label htmlFor={`proj-desc-${index}`} className="field-label">Description</label>
+                                        <textarea id={`proj-desc-${index}`} rows="3" placeholder="What you built and the result" value={proj.description} onChange={(e) => handleProjectChange(index, 'description', e.target.value)} className="field" />
                                     </div>
-                                    <div className="mb-2">
-                                        <label className="block font-medium mb-1">Project Link (optional)</label>
-                                        <input
-                                            placeholder="https://github.com/yourusername/project"
-                                            value={proj.link}
-                                            onChange={(e) => handleProjectChange(index, 'link', e.target.value)}
-                                            className="w-full p-2 border rounded-md"
-                                        />
+                                    <div className="md:col-span-2">
+                                        <label htmlFor={`proj-link-${index}`} className="field-label">Link (optional)</label>
+                                        <input id={`proj-link-${index}`} placeholder="https://github.com/your-name/project" value={proj.link} onChange={(e) => handleProjectChange(index, 'link', e.target.value)} className="field" />
                                     </div>
                                 </div>
                             ))}
-                            <button
-                                type="button"
-                                onClick={addProject}
-                                className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
-                            >
-                                Add More Projects
-                            </button>
                         </div>
+                        <AddButton onClick={addProject}>Add project</AddButton>
+                    </>
+                );
+            default:
+                return (
+                    <>
+                        <h3 className="text-sm font-semibold text-ink">Achievements</h3>
+                        <div className="mt-2 space-y-3">
+                            {achievements.map((ach, index) => (
+                                <div key={index} className="grid gap-3 md:grid-cols-2">
+                                    <input aria-label={`Achievement ${index + 1} title`} placeholder="Achievement title" value={ach.title} onChange={(e) => handleAchievementChange(index, 'title', e.target.value)} className="field" />
+                                    <input aria-label={`Achievement ${index + 1} details`} placeholder="Role or details" value={ach.role} onChange={(e) => handleAchievementChange(index, 'role', e.target.value)} className="field" />
+                                </div>
+                            ))}
+                        </div>
+                        <AddButton onClick={addAchievement}>Add achievement</AddButton>
 
-                        {/* Courses/Training Section */}
-                        <div className="mb-4">
-                            <label className="block text-lg font-semibold mb-2">Courses & Training</label>
+                        <h3 className="mt-8 text-sm font-semibold text-ink">Courses and training</h3>
+                        <div className="mt-2 space-y-3">
                             {courses.map((course, index) => (
-                                <div key={index} className="mb-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <input
-                                        placeholder="Course Title"
-                                        value={course.title}
-                                        onChange={(e) => handleCourseChange(index, 'title', e.target.value)}
-                                        className="w-full p-2 border rounded-md"
-                                    />
-                                    <input
-                                        placeholder="Provider (Udemy, Coursera, etc.)"
-                                        value={course.provider}
-                                        onChange={(e) => handleCourseChange(index, 'provider', e.target.value)}
-                                        className="w-full p-2 border rounded-md"
-                                    />
-                                    <input
-                                        placeholder="Completion Date"
-                                        value={course.date}
-                                        onChange={(e) => handleCourseChange(index, 'date', e.target.value)}
-                                        className="w-full p-2 border rounded-md"
-                                    />
+                                <div key={index} className="grid gap-3 md:grid-cols-3">
+                                    <input aria-label={`Course ${index + 1} title`} placeholder="Course title" value={course.title} onChange={(e) => handleCourseChange(index, 'title', e.target.value)} className="field" />
+                                    <input aria-label={`Course ${index + 1} provider`} placeholder="Provider (Coursera, Udemy)" value={course.provider} onChange={(e) => handleCourseChange(index, 'provider', e.target.value)} className="field" />
+                                    <input aria-label={`Course ${index + 1} completion date`} placeholder="Completion date" value={course.date} onChange={(e) => handleCourseChange(index, 'date', e.target.value)} className="field" />
                                 </div>
                             ))}
-                            <button
-                                type="button"
-                                onClick={addCourse}
-                                className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
-                            >
-                                Add More Courses/Training
-                            </button>
                         </div>
+                        <AddButton onClick={addCourse}>Add course</AddButton>
+                    </>
+                );
+        }
+    };
 
-                        <div className="flex justify-center mt-8">
-                            <button
-                                type="submit"
-                                className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors"
-                            >
-                                Generate Resume
-                            </button>
+    const strengthMeter = (
+        <div className="w-full sm:w-72">
+            <div className="flex items-baseline justify-between gap-3 text-sm font-semibold">
+                <span className="text-ink">Resume strength</span>
+                <span className="text-ink-soft">
+                    <span className="text-base font-extrabold text-ink">{strength}</span>/100
+                </span>
+            </div>
+            <div
+                className="mt-1.5 h-2.5 rounded-full bg-surface"
+                role="meter"
+                aria-label="Resume strength"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={strength}
+                aria-valuetext={`${strength} out of 100, ${level.name}`}
+            >
+                <div
+                    className="h-2.5 rounded-full bg-accent-bright transition-[width] duration-500 motion-reduce:transition-none"
+                    style={{ width: `${strength}%` }}
+                />
+            </div>
+            <p className="mt-1 text-xs font-bold text-accent">{level.name}</p>
+        </div>
+    );
+
+    if (preview) {
+        return (
+            <main className="bg-surface px-4 py-5 sm:px-6 sm:py-6">
+                <div className="mx-auto max-w-4xl">
+                    <div className="card-shadow grid items-center gap-5 rounded-3xl bg-white p-6 text-center sm:p-8 md:grid-cols-[auto_1fr_auto] md:text-left">
+                        <img src={FINAL_TROPHY} alt="" className="pop mx-auto h-24 w-24 object-contain" />
+                        <div>
+                            <p className="text-sm font-semibold text-ink-soft">
+                                Strength {strength}/100: {level.name}
+                            </p>
+                            <h1 className="mt-1 text-[clamp(1.5rem,3vw,2rem)] font-extrabold leading-tight tracking-tight text-ink">
+                                Your resume is ready
+                            </h1>
+                            {nextTasks.length > 0 ? (
+                                <div className="mt-3 flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                                    <span className="text-sm text-ink-soft">To raise your score:</span>
+                                    {nextTasks.map((task) => (
+                                        <button
+                                            key={task.label}
+                                            onClick={() => improve(task)}
+                                            className="rounded-full bg-peach px-3 py-1 text-sm font-semibold text-ink transition-colors hover:bg-[#FFD9BF]"
+                                        >
+                                            {task.label} <span className="text-accent">+{task.points}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="mt-2 text-sm text-ink-soft">Every task is done. Nice work.</p>
+                            )}
                         </div>
-                    </form>
-                ) : (
-                    <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                            <h2 className="text-2xl font-bold">Resume Preview</h2>
-                            <button
-                                onClick={generatePDF}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                            >
+                        <div className="flex flex-wrap justify-center gap-3 md:flex-col">
+                            <button onClick={() => downloadResumePdf(currentResume())} className="btn-primary">
+                                <Download className="h-4 w-4" aria-hidden="true" />
                                 Download PDF
                             </button>
-                        </div>
-
-                        <div className="p-8 border rounded-lg bg-white shadow-md max-w-3xl mx-auto">
-                            {/* Resume Preview */}
-                            <div className="text-center mb-6">
-                                <h1 className="text-3xl font-bold text-blue-700">{formik.values.name}</h1>
-                                <p className="text-gray-700 mt-2">
-                                    {formik.values.email} | {formik.values.phone} | {formik.values.linkedin} | {formik.values.github}
-                                </p>
-                            </div>
-
-                            <div className="mb-6">
-                                <h2 className="text-xl font-bold text-blue-700 border-b border-blue-700 pb-1 mb-3">PROFESSIONAL EXPERIENCE</h2>
-                                {experiences.map((exp, index) => (
-                                    <div key={index} className="mb-4">
-                                        {(exp.company || exp.role) && (
-                                            <>
-                                                <div className="font-bold">{exp.company}</div>
-                                                <div className="flex justify-between">
-                                                    <div className="font-bold">{exp.role}</div>
-                                                    <div>{exp.startDate} - {exp.endDate}</div>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="mb-6">
-                                <h2 className="text-xl font-bold text-blue-700 border-b border-blue-700 pb-1 mb-3">SKILLS</h2>
-                                <p>{selectedSkills.join(', ')}</p>
-                            </div>
-
-                            <div className="mb-6">
-                                <h2 className="text-xl font-bold text-blue-700 border-b border-blue-700 pb-1 mb-3">EDUCATION</h2>
-                                <p>{formik.values.education}</p>
-                            </div>
-
-                            {/* Projects Preview - add after Education section in the preview */}
-                            {projects.some(p => p.title || p.description) && (
-                                <div className="mb-6">
-                                    <h2 className="text-xl font-bold text-blue-700 border-b border-blue-700 pb-1 mb-3">PROJECTS</h2>
-                                    {projects.map((proj, index) => (
-                                        <div key={index} className="mb-4">
-                                            {(proj.title || proj.description) && (
-                                                <>
-                                                    <div className="font-bold">{proj.title}</div>
-                                                    {proj.technologies && (
-                                                        <div className="italic">Technologies: {proj.technologies}</div>
-                                                    )}
-                                                    {proj.description && (
-                                                        <div className="ml-3">{proj.description}</div>
-                                                    )}
-                                                    {proj.link && (
-                                                        <div className="ml-3 text-blue-600">{proj.link}</div>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Courses Preview */}
-                            {courses.some(c => c.title || c.provider) && (
-                                <div className="mb-6">
-                                    <h2 className="text-xl font-bold text-blue-700 border-b border-blue-700 pb-1 mb-3">COURSES & TRAINING</h2>
-                                    {courses.map((course, index) => (
-                                        <div key={index} className="mb-2">
-                                            {(course.title || course.provider) && (
-                                                <>
-                                                    <div className="font-bold">{course.title}</div>
-                                                    <div className="ml-3">
-                                                        {course.provider}{course.date ? ` (${course.date})` : ''}
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {achievements.some(a => a.title || a.role) && (
-                                <div className="mb-6">
-                                    <h2 className="text-xl font-bold text-blue-700 border-b border-blue-700 pb-1 mb-3">ACHIEVEMENTS</h2>
-                                    {achievements.map((ach, index) => (
-                                        <div key={index} className="mb-2">
-                                            {(ach.title || ach.role) && (
-                                                <>
-                                                    <div className="font-bold">{ach.title}</div>
-                                                    <div className="ml-3">{ach.role}</div>
-                                                </>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex justify-center mt-6">
-                            <button
-                                onClick={() => setPreview(false)}
-                                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors mr-4"
-                            >
-                                Back to Edit
-                            </button>
-                            <button
-                                onClick={generatePDF}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                                Download PDF
+                            <button onClick={() => setPreview(false)} className="btn-outline">
+                                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                                Back to edit
                             </button>
                         </div>
                     </div>
-                )}
+
+                    {user && saveState !== 'idle' && (
+                        <div
+                            role="status"
+                            className={`mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl px-4 py-3 text-sm font-semibold text-ink ${
+                                saveState === 'error' ? 'bg-butter' : 'bg-mint'
+                            }`}
+                        >
+                            <CircleCheck className={`h-5 w-5 shrink-0 ${saveState === 'error' ? 'text-accent' : 'text-[#2F9E78]'}`} aria-hidden="true" />
+                            <span className="flex-1">
+                                {saveState === 'saving' && 'Saving to your profile...'}
+                                {saveState === 'saved' && 'Saved to your profile. You can view, download or edit it there any time.'}
+                                {saveState === 'error' && "We couldn't save this to your profile. Download the PDF to keep it."}
+                            </span>
+                            {saveState === 'saved' && (
+                                <Link to="/profile?tab=resume" className="inline-flex items-center gap-1.5 text-accent hover:underline">
+                                    <UserRound className="h-4 w-4" aria-hidden="true" />
+                                    View in profile
+                                </Link>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="mt-5">
+                        <ResumeDocument resume={currentResume()} />
+                    </div>
+                </div>
+            </main>
+        );
+    }
+
+    const stepTasks = tasks.filter((task) => task.step === current.id);
+
+    return (
+        <main className="bg-surface px-4 py-5 sm:px-6 sm:py-6">
+            <div className="mx-auto max-w-5xl">
+                <div className="card-shadow rounded-3xl bg-white px-4 py-4 sm:px-6">
+                    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+                        <div className="min-w-0">
+                            <h1 className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">Resume builder</h1>
+                            <p className="text-sm font-semibold text-ink-soft">
+                                Step {step + 1} of {resumeSteps.length}: {current.title}
+                            </p>
+                        </div>
+                        {strengthMeter}
+                    </div>
+
+                    <ol className="relative mt-4 flex items-center justify-between [--inset:1.25rem]" aria-label="Resume steps">
+                        <span
+                            aria-hidden="true"
+                            className="absolute left-[var(--inset)] right-[var(--inset)] top-1/2 h-1 -translate-y-1/2 rounded-full bg-surface"
+                        />
+                        <span
+                            aria-hidden="true"
+                            className="absolute left-[var(--inset)] top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent-bright transition-[width] duration-500 motion-reduce:transition-none"
+                            style={{ width: `calc((100% - 2 * var(--inset)) * ${step / resumeSteps.length})` }}
+                        />
+                        {resumeSteps.map((s, index) => {
+                            const guide = guides[s.coach];
+                            const isCurrent = index === step;
+                            return (
+                                <li key={s.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setStep(index)}
+                                        title={`${s.title} with ${guide.name}`}
+                                        aria-current={isCurrent ? 'step' : undefined}
+                                        className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-white ${
+                                            isCurrent ? 'ring-4 ring-accent-bright/25' : ''
+                                        }`}
+                                    >
+                                        <img
+                                            src={guide.image}
+                                            alt=""
+                                            className={`h-10 w-10 rounded-full object-cover object-top transition duration-300 ${guide.tone} ${
+                                                !isCurrent && !stepDone[index] ? 'opacity-40 grayscale' : ''
+                                            } ${isCurrent ? 'scale-110' : ''}`}
+                                        />
+                                        {stepDone[index] && (
+                                            <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#2F9E78] ring-2 ring-white">
+                                                <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} aria-hidden="true" />
+                                            </span>
+                                        )}
+                                        <span className="sr-only">
+                                            {s.title}
+                                            {stepDone[index] ? ', complete' : ''}
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                        <li>
+                            <button
+                                type="button"
+                                onClick={openPreview}
+                                title="Preview and download"
+                                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white"
+                            >
+                                <img src={FINAL_TROPHY} alt="" className={`h-10 w-10 object-contain ${strength >= 90 ? '' : 'opacity-40 grayscale'}`} />
+                                <span className="sr-only">Preview and download</span>
+                            </button>
+                        </li>
+                    </ol>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-[0.8fr_1.2fr]">
+                    <aside className="card-shadow order-last overflow-hidden rounded-3xl bg-white md:order-none md:sticky md:top-24 md:self-start">
+                        <div className={`relative hidden h-52 md:block ${coach.tone}`}>
+                            <img
+                                key={current.coach}
+                                src={coach.image}
+                                alt={`${coach.name}, ${coach.role}`}
+                                className="guide-in absolute bottom-0 left-1/2 h-[92%] w-auto max-w-none -translate-x-1/2 object-contain object-bottom"
+                            />
+                            <div className="absolute bottom-3 left-3 rounded-2xl bg-white/95 px-3.5 py-2 shadow-sm">
+                                <p className="font-bold leading-tight text-ink">{coach.name}</p>
+                                <p className="text-sm text-ink-soft">{coach.role}</p>
+                            </div>
+                        </div>
+                        <div className="p-5">
+                            {/* Phones: a small face instead of the full coach image */}
+                            <div className="mb-3 flex items-center gap-3 md:hidden">
+                                <img
+                                    src={coach.image}
+                                    alt=""
+                                    className={`h-12 w-12 rounded-full object-cover object-top ${coach.tone}`}
+                                />
+                                <div>
+                                    <p className="font-bold leading-tight text-ink">{coach.name}</p>
+                                    <p className="text-sm text-ink-soft">{coach.role}</p>
+                                </div>
+                            </div>
+                            <p className="text-sm font-semibold text-accent">{coach.name}'s tip</p>
+                            <p key={step} className="bubble-in mt-1 leading-relaxed text-ink">“{current.tip}”</p>
+
+                            <p className="mt-5 text-sm font-semibold text-ink">Tasks for this step</p>
+                            <ul className="mt-2 space-y-2.5">
+                                {stepTasks.map((task, index) => (
+                                    <li key={`${task.step}-${index}`} className="flex items-start gap-2.5 text-sm">
+                                        <span
+                                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                                                task.done ? 'pop bg-[#2F9E78]' : 'border-2 border-line'
+                                            }`}
+                                        >
+                                            {task.done && <Check className="h-3 w-3 text-white" strokeWidth={3.5} aria-hidden="true" />}
+                                        </span>
+                                        <span className={task.done ? 'text-ink-soft line-through decoration-ink/30' : 'text-ink'}>
+                                            {task.label}
+                                            <span className="sr-only">{task.done ? ' (done)' : ''}</span>
+                                        </span>
+                                        <span className={`ml-auto shrink-0 font-bold ${task.done ? 'text-[#2F9E78]' : 'text-accent'}`}>
+                                            +{task.points}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </aside>
+
+                    <form onSubmit={goNext} noValidate className="card-shadow rounded-3xl bg-white p-6 sm:p-8">
+                        <p className="text-sm font-semibold text-ink-soft">
+                            Step {step + 1} of {resumeSteps.length}
+                        </p>
+                        <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-ink">{current.title}</h2>
+                        <div key={current.id} className="bubble-in mt-6">
+                            {renderStepFields()}
+                        </div>
+
+                        <div className="mt-8 flex items-center justify-between gap-3 border-t border-line pt-5">
+                            {step > 0 ? (
+                                <button type="button" onClick={() => setStep(step - 1)} className="btn-outline">
+                                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                                    Back
+                                </button>
+                            ) : (
+                                <span />
+                            )}
+                            <button type="submit" className="btn-primary px-6">
+                                {isLastStep ? 'Preview my resume' : `Next: ${resumeSteps[step + 1].title}`}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
+        </main>
     );
 };
 

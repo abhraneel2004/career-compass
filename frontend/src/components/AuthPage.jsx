@@ -6,9 +6,9 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
 } from 'firebase/auth';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { auth, db, provider } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore'; // Firestore import
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const loginValidationSchema = Yup.object({
   email: Yup.string().email('Invalid email').required('Email is required'),
@@ -28,7 +28,8 @@ const signUpValidationSchema = Yup.object({
 });
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+  const location = useLocation();
+  const [isLogin, setIsLogin] = useState(location.state?.mode !== 'signup');
   const [animation, setAnimation] = useState('animate-slide-in');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -74,20 +75,18 @@ export default function AuthPage() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Optional: create a document if not exists
-      await setDoc(
-        doc(db, 'users', user.uid),
-        {
+      // Create the user document on first Google login only, so an
+      // existing premium user isn't reset to isPremium: false
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        await setDoc(userRef, {
           isPremium: false,
           email: user.email,
           createdAt: new Date(),
-        },
-        { merge: true }
-      );
-      console.log("Login success. Navigating to homepage...");
+        });
+      }
       navigate('/');
-
-      // navigate('/');
     } catch (error) {
       alert(error.message);
     }

@@ -15,3 +15,5 @@ serviceAccountKey.json
 # Ignore IDE specific files
 .vscode/
 .idea/
+# Firebase service account keys downloaded from the console
+*firebase-adminsdk*.json

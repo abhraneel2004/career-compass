@@ -1,7 +1,15 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { Check } from "lucide-react";
+import { toast } from "react-toastify";
 import { auth, db } from "../firebase";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
+
+const includes = [
+  "Every career match, with the reasons behind it",
+  "A summary of your strengths and work style",
+  "A PDF download, also saved to your account",
+];
 
 const Pricing = () => {
   const navigate = useNavigate();
@@ -10,7 +18,7 @@ const Pricing = () => {
     const user = auth.currentUser;
 
     if (!user) {
-      alert("Please login to proceed.");
+      toast.info("Sign in to continue.");
       navigate("/login");
       return;
     }
@@ -20,49 +28,71 @@ const Pricing = () => {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        alert("User data not found in database.");
+        toast.error("We couldn't find your account. Sign out and sign in again.");
         return;
       }
 
       // Simulate payment success
-      alert("Payment successful! Updating your premium access...");
-
-      // Update isPremium to true
       await updateDoc(userRef, {
         isPremium: true,
       });
-
-      // Redirect and open the PDF
-      // window.open("/path-to-your-result.pdf", "_blank"); // Replace with actual PDF path
+      toast.success("Payment confirmed. Opening your report...");
       navigate("/result");
     } catch (error) {
       console.error("Error updating premium status:", error);
-      alert("Something went wrong. Please try again.");
+      toast.error("Payment didn't go through. Please try again.");
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-100 p-6">
-      <div className="bg-white shadow-xl rounded-2xl p-8 max-w-md w-full text-center">
-        <h1 className="text-3xl font-bold mb-4 text-gray-800">Unlock Your Full Career Report</h1>
-        <p className="text-gray-600 mb-6">
-          Get access to your complete AI-powered career report in PDF format for just <span className="font-semibold">$2</span>.
-        </p>
-        <button
-          onClick={handlePayment}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200"
-        >
-          Pay $2 & Download PDF
-        </button>
+    <main className="bg-surface px-4 py-12 sm:px-6 sm:py-16">
+      <div className="card-shadow mx-auto grid max-w-5xl overflow-hidden rounded-[2rem] bg-white md:grid-cols-2">
+        <div className="flex items-end justify-center bg-gradient-to-br from-[#FFF4EA] to-[#FFDFC6] px-6 pt-10">
+          <img
+            src="/images/cta-group.webp"
+            alt="Five young professionals smiling together"
+            width="900"
+            height="628"
+            className="block h-auto w-full max-w-md"
+          />
+        </div>
 
-        <button
-          onClick={() => navigate("/")}
-          className="mt-4 text-sm text-blue-500 hover:underline"
-        >
-          Go Back
-        </button>
+        <div className="p-8 sm:p-12">
+          <h1 className="text-[clamp(1.9rem,4vw,2.6rem)] font-extrabold leading-[1.08] tracking-[-0.03em] text-ink">
+            Unlock your full career report
+          </h1>
+          <p className="mt-3 leading-relaxed text-ink-soft">
+            Your quiz answers, turned into a complete written report you can download and keep.
+          </p>
+
+          <p className="mt-8 flex items-baseline gap-2">
+            <span className="text-5xl font-extrabold tracking-tight text-ink">$2</span>
+            <span className="text-ink-soft">one-time payment</span>
+          </p>
+
+          <ul className="mt-7 space-y-3.5">
+            {includes.map((item) => (
+              <li key={item} className="flex items-start gap-3 text-ink">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-bright">
+                  <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} aria-hidden="true" />
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
+
+          <button onClick={handlePayment} className="btn-primary mt-9 w-full py-3.5">
+            Pay $2 and get my report
+          </button>
+          <button
+            onClick={() => navigate("/")}
+            className="mt-4 w-full text-center text-sm font-semibold text-ink-soft hover:text-ink"
+          >
+            Back to home
+          </button>
+        </div>
       </div>
-    </div>
+    </main>
   );
 };
 
