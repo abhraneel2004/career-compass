@@ -17,3 +17,4 @@ serviceAccountKey.json
 .idea/
 # Firebase service account keys downloaded from the console
 *firebase-adminsdk*.json
+career-compass-*
